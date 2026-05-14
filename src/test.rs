@@ -65,7 +65,18 @@ mod tests {
         executable_path: &str,
         expected_hash: &str,
     ) -> anyhow::Result<()> {
-        let build_args = ["build", build_path];
+        test_local_build_hash_helper_with_args(
+            &["build", build_path],
+            executable_path,
+            expected_hash,
+        )
+    }
+
+    fn test_local_build_hash_helper_with_args(
+        build_args: &[&str],
+        executable_path: &str,
+        expected_hash: &str,
+    ) -> anyhow::Result<()> {
         let child = std::process::Command::new("./target/debug/solana-verify")
             .args(build_args)
             .stdin(Stdio::piped())
@@ -179,11 +190,51 @@ mod tests {
     #[test]
     fn test_local_pinocchio_example() -> anyhow::Result<()> {
         const EXPECTED_HASH: &str =
-            "ea119a63af208616d504b0742c01551d3edf56d55554a922448b0d8d0844c374";
+            "8d2e821c04f8c3826abd81b79035e38fc1284862023a18e608086674e2938512";
         test_local_build_hash_helper(
             "./examples/hello_world_pinocchio",
             "./examples/hello_world_pinocchio/target/deploy/hello_world.so",
             EXPECTED_HASH,
+        )
+    }
+
+    #[test]
+    fn test_local_pinocchio_example_with_cargo_build_sbf_args() -> anyhow::Result<()> {
+        // This test ensures that the --cargo-build-sbf-args flag is correctly passed to
+        // the build command and it does affect the resulting hash.
+        //
+        // The first build uses platform-tools v1.47 while the second build uses
+        // platform-tools v1.54, which should produce different hashes for the same source
+        // code.
+
+        const EXPECTED_HASH_1_47: &str =
+            "1df485441105f79ad2d2e795da85be191aa4abc02148c196fb3334b456266a6c";
+        test_local_build_hash_helper_with_args(
+            &[
+                "build",
+                "--cargo-build-sbf-args=--tools-version v1.47",
+                "./examples/hello_world_pinocchio",
+                "--",
+                "--target-dir",
+                "target/v1.47",
+            ],
+            "./examples/hello_world_pinocchio/target/v1.47/deploy/hello_world.so",
+            EXPECTED_HASH_1_47,
+        )?;
+
+        const EXPECTED_HASH_1_54: &str =
+            "c0b2e69079b0c3e04caae20a4e771fa16031bdf7258a26688e1d3b65a1ac8167";
+        test_local_build_hash_helper_with_args(
+            &[
+                "build",
+                "--cargo-build-sbf-args=--tools-version v1.54",
+                "./examples/hello_world_pinocchio",
+                "--",
+                "--target-dir",
+                "target/v1.54",
+            ],
+            "./examples/hello_world_pinocchio/target/v1.54/deploy/hello_world.so",
+            EXPECTED_HASH_1_54,
         )
     }
 
